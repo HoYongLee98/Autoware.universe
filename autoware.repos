@@ -102,4 +102,4 @@ repositories:
   vehicle/Carla_t2:
     type: git
     url: https://github.com/TUMFTM/Carla_t2.git
-    version: main
+    version: 193c5786b7433efb157b22e25dcdafc78811d2d6

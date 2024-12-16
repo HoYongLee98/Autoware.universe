@@ -1,0 +1,232 @@
+diff -ruN Autoware.universe/src/launcher/autoware_launch/autoware_launch/launch/components/tier4_localization_component.launch.xml Autoware.universe_changed/src/launcher/autoware_launch/autoware_launch/launch/components/tier4_localization_component.launch.xml
+--- Autoware.universe/src/launcher/autoware_launch/autoware_launch/launch/components/tier4_localization_component.launch.xml	2024-12-16 14:06:21.577654220 +0900
++++ Autoware.universe_changed/src/launcher/autoware_launch/autoware_launch/launch/components/tier4_localization_component.launch.xml	2024-12-16 14:16:39.877282573 +0900
+@@ -3,7 +3,14 @@
+   <let name="loc_config_path" value="$(find-pkg-share autoware_launch)/config/localization"/>
+   <arg name="pose_source" default="ndt" description="select pose_estimator: ndt, yabloc, eagleye"/>
+   <arg name="twist_source" default="gyro_odom" description="select twist_estimator. gyro_odom, eagleye"/>
+-  <arg name="input_pointcloud" default="/sensing/lidar/top/pointcloud" description="The topic will be used in the localization util module"/>
++  <!-- <arg name="input_pointcloud" default="/sensing/lidar/top/pointcloud" description="The topic will be used in the localization util module"/> -->
++  <arg name="input_pointcloud" default="/sensor/lidar/front" description="The topic will be used in the localization util module"/>
++  <!-- container name -->
++  <arg
++      name="lidar_container_name"
++      default="/sensing/lidar/front/pointcloud_preprocessor/pointcloud_container"
++      description="The target container to which lidar preprocessing nodes in localization be attached"
++  />
+ 
+   <group>
+     <include file="$(find-pkg-share tier4_localization_launch)/launch/localization.launch.xml">
+diff -ruN Autoware.universe/src/launcher/autoware_launch/autoware_launch/launch/e2e_simulator.launch.xml Autoware.universe_changed/src/launcher/autoware_launch/autoware_launch/launch/e2e_simulator.launch.xml
+--- Autoware.universe/src/launcher/autoware_launch/autoware_launch/launch/e2e_simulator.launch.xml	2024-12-16 14:06:21.577654220 +0900
++++ Autoware.universe_changed/src/launcher/autoware_launch/autoware_launch/launch/e2e_simulator.launch.xml	2024-12-16 14:14:43.524597475 +0900
+@@ -1,10 +1,11 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <launch>
+   <!-- Essential parameters -->
+-  <arg name="map_path" description="point cloud and lanelet2 map directory path"/>
+-  <arg name="vehicle_model" description="vehicle model name"/>
+-  <arg name="sensor_model" description="sensor model name"/>
++  <arg name="map_path" default="/home/rubis/autoware_map/Town10" description="point cloud and lanelet2 map directory path"/>
++  <arg name="vehicle_model" default="carla_t2_vehicle" description="vehicle model name"/>
++  <arg name="sensor_model" default="carla_t2_sensor_kit" description="sensor model name"/>
+   <arg name="data_path" default="$(env HOME)/autoware_data" description="packages data and artifacts directory path"/>
++  <arg name="convert_tf_test" default="false"/>
+ 
+   <!-- launch module preset -->
+   <arg name="planning_module_preset" default="default" description="planning module preset"/>
+@@ -12,7 +13,7 @@
+   <!-- Optional parameters -->
+   <!-- Modules to be launched -->
+   <arg name="vehicle" default="true" description="launch vehicle"/>
+-  <arg name="system" default="true" description="launch system"/>
++  <arg name="system" default="false" description="launch system"/>
+   <arg name="map" default="true" description="launch map"/>
+   <arg name="sensing" default="true" description="launch sensing"/>
+   <arg name="localization" default="true" description="launch localization"/>
+@@ -70,11 +71,15 @@
+       <!-- Sensing -->
+       <arg name="launch_sensing_driver" value="false"/>
+       <!-- Perception-->
+-      <arg name="traffic_light_recognition/enable_fine_detection" value="false"/>
++      <arg name="traffic_light_recognition/enable_fine_detection" value="true"/>
+       <arg name="namespace1" value="$(var traffic_light_namespace)"/>
+       <!-- Tools -->
+       <arg name="rviz" value="$(var rviz)"/>
+       <arg name="rviz_config" value="$(var rviz_config)"/>
+     </include>
++    <group if="$(var convert_tf_test)">
++      <node pkg="tf2_ros" exec="static_transform_publisher" name="static_transform_lidar_front" output="screen"
++          args="0 0 0 0 0 0 1 base_link lidar_front"/>
++    </group>
+   </group>
+ </launch>
+diff -ruN Autoware.universe/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/imu_corrector.param.yaml Autoware.universe_changed/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/imu_corrector.param.yaml
+--- Autoware.universe/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/imu_corrector.param.yaml	1970-01-01 09:00:00.000000000 +0900
++++ Autoware.universe_changed/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/imu_corrector.param.yaml	2024-12-16 14:18:22.609888314 +0900
+@@ -0,0 +1,8 @@
++/**:
++  ros__parameters:
++    angular_velocity_offset_x: 0.0    # [rad/s]
++    angular_velocity_offset_y: 0.0    # [rad/s]
++    angular_velocity_offset_z: 0.0    # [rad/s]
++    angular_velocity_stddev_xx: 0.03  # [rad/s]
++    angular_velocity_stddev_yy: 0.03  # [rad/s]
++    angular_velocity_stddev_zz: 0.03  # [rad/s]
+diff -ruN Autoware.universe/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/sensor_kit_calibration.yaml Autoware.universe_changed/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/sensor_kit_calibration.yaml
+--- Autoware.universe/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/sensor_kit_calibration.yaml	1970-01-01 09:00:00.000000000 +0900
++++ Autoware.universe_changed/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/sensor_kit_calibration.yaml	2024-12-16 14:18:27.241915644 +0900
+@@ -0,0 +1,43 @@
++sensor_kit_base_link:
++  traffic_light_left_camera/camera_link:
++    x: 1.80
++    y: 0.25
++    z: 1.65
++    roll: 0.0
++    pitch: 0.0
++    yaw: 0.0
++  lidar_front:
++    x: 1.5
++    y: 0.0
++    z: 2.1
++    roll: 0.0
++    pitch: 0.0
++    yaw: 0.0
++  lidar_rear:
++    x: -1.5
++    y: 0.0
++    z: 2.1
++    roll: 0.0
++    pitch: 0.0
++    yaw: 0.0
++  gnss_link:
++    x: 0.0
++    y: 0.0
++    z: 2.1
++    roll: 0.0
++    pitch: 0.0
++    yaw: 0.0
++  imu_link:
++    x: 0.1
++    y: 0.0
++    z: 2.1
++    roll: 0.0
++    pitch: 0.0
++    yaw: 0.0
++  camera_front:
++    x: 1.8
++    y: 0.25
++    z: 1.65
++    roll: 0.0
++    pitch: 0.0
++    yaw: 0.0
+diff -ruN Autoware.universe/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/sensors_calibration.yaml Autoware.universe_changed/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/sensors_calibration.yaml
+--- Autoware.universe/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/sensors_calibration.yaml	1970-01-01 09:00:00.000000000 +0900
++++ Autoware.universe_changed/src/param/autoware_individual_params/individual_params/config/default/carla_t2_sensor_kit/sensors_calibration.yaml	2024-12-16 14:18:31.445940450 +0900
+@@ -0,0 +1,8 @@
++base_link:
++  sensor_kit_base_link:
++    x: 1.2992244
++    y: 0.0
++    z: 0.0
++    roll: 0
++    pitch: 0
++    yaw: 0
+diff -ruN Autoware.universe/src/sensor_component/external/nebula/nebula_decoders/include/nebula_decoders/nebula_decoders_velodyne/decoders/velodyne_scan_decoder.hpp Autoware.universe_changed/src/sensor_component/external/nebula/nebula_decoders/include/nebula_decoders/nebula_decoders_velodyne/decoders/velodyne_scan_decoder.hpp
+--- Autoware.universe/src/sensor_component/external/nebula/nebula_decoders/include/nebula_decoders/nebula_decoders_velodyne/decoders/velodyne_scan_decoder.hpp	2024-12-16 14:06:29.077698042 +0900
++++ Autoware.universe_changed/src/sensor_component/external/nebula/nebula_decoders/include/nebula_decoders/nebula_decoders_velodyne/decoders/velodyne_scan_decoder.hpp	2024-12-16 14:18:50.865994763 +0900
+@@ -15,7 +15,7 @@
+ #if defined(ROS_DISTRO_FOXY) || defined(ROS_DISTRO_GALACTIC)
+ #include <angles/angles.h>  //Galactic
+ #else
+-#include <angles/angles/angles.h>  //Humble
++#include <angles/angles.h>  //Humble
+ #endif
+ 
+ #include "nebula_common/point_types.hpp"
+diff -ruN Autoware.universe/src/universe/autoware.universe/perception/multi_object_tracker/CMakeLists.txt Autoware.universe_changed/src/universe/autoware.universe/perception/multi_object_tracker/CMakeLists.txt
+--- Autoware.universe/src/universe/autoware.universe/perception/multi_object_tracker/CMakeLists.txt	2024-12-16 14:08:05.570262292 +0900
++++ Autoware.universe_changed/src/universe/autoware.universe/perception/multi_object_tracker/CMakeLists.txt	2024-12-16 14:15:50.528991879 +0900
+@@ -13,6 +13,7 @@
+ find_package(eigen3_cmake_module REQUIRED)
+ find_package(Eigen3 REQUIRED)
+ find_package(glog REQUIRED)
++find_package(diagnostic_updater REQUIRED)
+ 
+ include_directories(
+   SYSTEM
+@@ -39,6 +40,11 @@
+   ${MULTI_OBJECT_TRACKER_SRC}
+ )
+ 
++ament_target_dependencies(multi_object_tracker_node
++  diagnostic_updater
++  Eigen3
++)
++
+ target_link_libraries(multi_object_tracker_node
+   Eigen3::Eigen
+   glog::glog
+diff -ruN Autoware.universe/src/universe/autoware.universe/perception/tensorrt_yolox/CMakeLists.txt Autoware.universe_changed/src/universe/autoware.universe/perception/tensorrt_yolox/CMakeLists.txt
+--- Autoware.universe/src/universe/autoware.universe/perception/tensorrt_yolox/CMakeLists.txt	2024-12-16 14:08:05.606262503 +0900
++++ Autoware.universe_changed/src/universe/autoware.universe/perception/tensorrt_yolox/CMakeLists.txt	2024-12-16 14:14:01.664351248 +0900
+@@ -1,4 +1,8 @@
+ cmake_minimum_required(VERSION 3.17)
++
++cmake_policy(SET CMP0104 NEW)
++set(CMAKE_CUDA_ARCHITECTURES "87")
++
+ project(tensorrt_yolox)
+ 
+ find_package(tensorrt_common)
+diff -ruN Autoware.universe/src/universe/autoware.universe/perception/tensorrt_yolox/launch/yolox_tiny.launch.xml Autoware.universe_changed/src/universe/autoware.universe/perception/tensorrt_yolox/launch/yolox_tiny.launch.xml
+--- Autoware.universe/src/universe/autoware.universe/perception/tensorrt_yolox/launch/yolox_tiny.launch.xml	2024-12-16 14:08:05.606262503 +0900
++++ Autoware.universe_changed/src/universe/autoware.universe/perception/tensorrt_yolox/launch/yolox_tiny.launch.xml	2024-12-16 14:14:29.720516262 +0900
+@@ -1,6 +1,6 @@
+ <?xml version="1.0"?>
+ <launch>
+-  <arg name="input/image" default="/sensing/camera/camera0/image_rect_color"/>
++  <arg name="input/image" default="/sensing/camera/traffic_light/image_raw"/>
+   <arg name="output/objects" default="/perception/object_recognition/detection/rois0"/>
+   <arg name="model_name" default="yolox-tiny"/>
+   <arg name="data_path" default="$(env HOME)/autoware_data" description="packages data and artifacts directory path"/>
+@@ -28,7 +28,7 @@
+   />
+   <arg name="preprocess_on_gpu" default="true" description="If true, pre-processing is performed on GPU"/>
+   <arg name="calibration_image_list_path" default="" description="Path to a file which contains path to images. Those images will be used for int8 quantization."/>
+-  <arg name="use_decompress" default="true" description="use image decompress"/>
++  <arg name="use_decompress" default="false" description="use image decompress"/>
+   <arg name="build_only" default="false" description="exit after trt engine is built"/>
+ 
+   <node pkg="image_transport_decompressor" exec="image_transport_decompressor_node" name="image_transport_decompressor_node" if="$(var use_decompress)">
+diff -ruN Autoware.universe/src/universe/autoware.universe/perception/tensorrt_yolox/src/tensorrt_yolox_node.cpp Autoware.universe_changed/src/universe/autoware.universe/perception/tensorrt_yolox/src/tensorrt_yolox_node.cpp
+--- Autoware.universe/src/universe/autoware.universe/perception/tensorrt_yolox/src/tensorrt_yolox_node.cpp	2024-12-16 14:08:05.606262503 +0900
++++ Autoware.universe_changed/src/universe/autoware.universe/perception/tensorrt_yolox/src/tensorrt_yolox_node.cpp	2024-12-16 14:13:49.840281722 +0900
+@@ -118,15 +118,21 @@
+ void TrtYoloXNode::onConnect()
+ {
+   using std::placeholders::_1;
+-  if (
+-    objects_pub_->get_subscription_count() == 0 &&
+-    objects_pub_->get_intra_process_subscription_count() == 0 &&
+-    image_pub_.getNumSubscribers() == 0) {
+-    image_sub_.shutdown();
+-  } else if (!image_sub_) {
++  // if (
++  //   objects_pub_->get_subscription_count() == 0 &&
++  //   objects_pub_->get_intra_process_subscription_count() == 0 &&
++  //   image_pub_.getNumSubscribers() == 0) {
++  //   image_sub_.shutdown();
++  // } else if (!image_sub_) {
++  //   image_sub_ = image_transport::create_subscription(
++  //     this, "~/in/image", std::bind(&TrtYoloXNode::onImage, this, _1), "raw",
++  //     rmw_qos_profile_sensor_data);
++  // }
++  if (!image_sub_) {
+     image_sub_ = image_transport::create_subscription(
+       this, "~/in/image", std::bind(&TrtYoloXNode::onImage, this, _1), "raw",
+       rmw_qos_profile_sensor_data);
++      // RCLCPP_INFO(this->get_logger(), "[@@ Hoyong] create image sub_.");
+   }
+ }
+ 
